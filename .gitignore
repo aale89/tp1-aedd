@@ -1,3 +1,12 @@
 # ==== ARCHIVOS DE RSTUDIO ====
 .Rhistory
 .RData
+
+# ==== DATOS Y ARCHIVOS GRANDES ====
+*.csv
+*.xlsx
+*.xls
+*.rds
+*.RDS
+*.geojson
+raw_data/
