@@ -1,8 +1,24 @@
+# TP 1 Analía ALe
+
 # Agregamos utilidad para levantar archivos desde subdirectorio /datos ----
 
-# importa el paquete rstudioapi
-install.packages(rstudioapi)
-library("rstudioapi")  
+# importa el paquete rstudioapi, si se lo necesita
+if(!require(rstudioapi)) {
+  install.packages("rstudioapi")
+  library(rstudioapi)  
+}
+
+# importa el paquete tidyverse, si se lo necesita
+if(!require(tidyverse)) {
+  install.packages("tidyverse")
+  library(tidyverse)
+}
+
+# importa el paquete dplyr, si se lo necesita
+if(!require(dplyr)) {
+  install.packages("dplyr")
+  library(dplyr)
+}
 
 # obtiene directorio del archivo actual
 directorio_actual <- dirname(rstudioapi::getSourceEditorContext()$path)
@@ -39,10 +55,28 @@ filtrar_csv_grande <- function(archivo_csv) {
   return(datos_filtrados)
 }
 
-datos_filtrados <- filtrar_csv_grande("snic-departamentos-mes-sexo.csv")
-View(datos_filtrados)
+# Parte II:  Transformación de los datos filtrados
+transformar_datos <- function(datos) {
+  
+  datos_agrupados_por_año = 
+  datos |> summarise(
+    cantidad_victimas_masc = sum(cantidad_victimas_masc),
+    cantidad_victimas_fem = sum(cantidad_victimas_fem),
+    cantidad_victimas_sd = sum(cantidad_victimas_sd),
+    cantidad_victimas = sum(cantidad_victimas),
+    .by = anio
+  ) |> mutate(
+    porcentaje_masculino = cantidad_victimas_masc / cantidad_victimas * 100,
+    porcentaje_femenino = cantidad_victimas_fem / cantidad_victimas * 100,
+    porcentaje_sd = cantidad_victimas_sd / cantidad_victimas * 100
+  )
+  
+  return(datos_agrupados_por_año)
+}
 
-# Parte III: Función utilizada para exportar los datos a un nuevo archivo .csv ----
+# Parte III: Lectura de datos desde archivo de Excel
+
+# Parte IV: Función utilizada para exportar los datos a un nuevo archivo .csv ----
 validacion_datos_para_exportar <- function(datos) {
   # Verificar que el data frame tenga las columnas necesarias
   columnas_requeridas <- c("anio", "cantidad_victimas_masc", "cantidad_victimas_fem", 
@@ -77,3 +111,11 @@ exportar <- function(datos, nombre_archivo = "caba_homicidios_dolosos_2014_2023.
             row.names = FALSE, 
             na = "")
 }
+
+
+#######
+
+datos_filtrados <- filtrar_csv_grande("snic-departamentos-mes-sexo.csv")
+datos_transformados <-transformar_datos(datos_filtrados)
+View(datos_transformados)
+
