@@ -20,6 +20,12 @@ if(!require(dplyr)) {
   library(dplyr)
 }
 
+#importa el paquete readxl, si se lo necesita
+if(!require(readxl)) {
+  install.packages("readxl")
+  library(readxl)
+}
+
 # obtiene directorio del archivo actual
 directorio_actual <- dirname(rstudioapi::getSourceEditorContext()$path)
 
@@ -74,48 +80,39 @@ transformar_datos <- function(datos) {
   return(datos_agrupados_por_año)
 }
 
-# Parte III: Lectura de datos desde archivo de Excel
-
-# Parte IV: Función utilizada para exportar los datos a un nuevo archivo .csv ----
-validacion_datos_para_exportar <- function(datos) {
-  # Verificar que el data frame tenga las columnas necesarias
-  columnas_requeridas <- c("anio", "cantidad_victimas_masc", "cantidad_victimas_fem", 
-                           "cantidad_victimas_sd", "cantidad_victimas", "porcentaje_masc", 
-                           "porcentaje_fem", "porcentaje_sd", "tasa_victimas_100k", "poblacion")
-  
-  # Comprobar si faltan columnas
-  columnas_faltantes <- setdiff(columnas_requeridas, names(datos))
-  if(length(columnas_faltantes) > 0) {
-    stop(paste("Faltan las siguientes columnas:", paste(columnas_faltantes, collapse = ", ")))
-  }
+# Parte III: Procesado de datos de proyección de población desde CABA
+# Se pivotean los datos del Excel para lograr un formato similar al CSV del SNIC de la parte I
+procesar_datos_caba <- function(datos) {
+  datos <- datos |> pivot_longer(cols = -Comuna,
+               names_to = "anio",
+               values_to = "poblacion"
+              ) |> 
+    mutate(anio = as.numeric(anio)) |>
+    filter(Comuna == "Total")
+  return(datos)
 }
 
+# Parte IV: Fusión de los datos de ambos data frames
+fusionar_datos <- function(agrupado_snic, proyeccion_caba) {
+  datos_fusionados <- agrupado_snic |> left_join(proyeccion_caba, by = "anio") |> 
+    mutate(tasa_victimas_100k = round(100000 * cantidad_victimas / poblacion, 2), Comuna = NULL)
+  return(datos_fusionados)
+}
+
+# Parte V: Función utilizada para exportar los datos a un nuevo archivo .csv ----
 exportar <- function(datos, nombre_archivo = "caba_homicidios_dolosos_2014_2023.csv") {
-  # Crear el data frame con las columnas en el orden especificado
-  datos_exportar <- data.frame(
-    anio = as.numeric(datos$anio),
-    cantidad_victimas_masc = as.numeric(datos$cantidad_victimas_masc),
-    cantidad_victimas_fem = as.numeric(datos$cantidad_victimas_fem),
-    cantidad_victimas_sd = as.numeric(datos$cantidad_victimas_sd),
-    cantidad_victimas = as.numeric(datos$cantidad_victimas),
-    porcentaje_masc = round(as.numeric(datos$porcentaje_masc), 4),
-    porcentaje_fem = round(as.numeric(datos$porcentaje_fem), 4),
-    porcentaje_sd = round(as.numeric(datos$porcentaje_sd), 4),
-    tasa_victimas_100k = round(as.numeric(datos$tasa_victimas_100k), 4),
-    poblacion = as.numeric(datos$poblacion)
-  )
-  
-  # Exportar a CSV
-  write.csv(datos_exportar, 
-            file = nombre_archivo, 
-            row.names = FALSE, 
-            na = "")
+  write.csv(datos, file = nombre_archivo, row.names = FALSE)
 }
 
 
 #######
+snic_historico_filtrado <- filtrar_csv_grande("snic-departamentos-mes-sexo.csv")
+snic_datos_agrupados <-transformar_datos(snic_historico_filtrado)
 
-datos_filtrados <- filtrar_csv_grande("snic-departamentos-mes-sexo.csv")
-datos_transformados <-transformar_datos(datos_filtrados)
-View(datos_transformados)
+caba_proyeccion_poblacion_2025 <- read_excel("caba-poblacion.xls", range="A3:Q19", col_names=TRUE)
+caba_datos_agrupados <- procesar_datos_caba(caba_proyeccion_poblacion_2025)
+datos_fusionados <- fusionar_datos(snic_datos_agrupados, caba_datos_agrupados)
+View(datos_fusionados)
+exportar(datos_fusionados)
+##
 
